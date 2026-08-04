@@ -19,7 +19,12 @@
       "Bash(npm run build:*)",
       "WebSearch",
       "Bash(vendor/bin/pint:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(del \"database\\migrations\\2025_08_30_101014_create_personal_access_tokens_table.php\")",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(awk:*)",
+      "Bash(del \"C:\\\\Users\\\\Elizangela B G Rubim\\\\Desktop\\\\bilhetagem-modern\\\\TODO-ENTRADAS-CREATE.md\")"
     ]
   },
   "enableAllProjectMcpServers": true,

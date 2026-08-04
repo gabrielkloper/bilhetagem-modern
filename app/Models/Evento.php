@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Evento extends Model
 {
@@ -47,7 +47,7 @@ class Evento extends Model
         'user_criacao',
         'regras_comunica',
         'observacoes',
-        'timezone'
+        'timezone',
     ];
 
     protected $casts = [
@@ -68,7 +68,7 @@ class Evento extends Model
         'capacidade' => 'integer',
         'preco_padrao' => 'decimal:2',
         'tempo_atualiza' => 'integer',
-        'tempo_tela' => 'integer'
+        'tempo_tela' => 'integer',
     ];
 
     // Relacionamentos
@@ -95,6 +95,16 @@ class Evento extends Model
     public function caixaMovimentos()
     {
         return $this->hasMany(CaixaMovimento::class);
+    }
+
+    public function tipoDespesas()
+    {
+        return $this->hasMany(TipoDespesa::class);
+    }
+
+    public function caixaAberturas()
+    {
+        return $this->hasMany(CaixaAbertura::class);
     }
 
     public function userAtualiza()
@@ -141,7 +151,7 @@ class Evento extends Model
     protected function statusLabel(): Attribute
     {
         return Attribute::make(
-            get: fn () => match($this->status) {
+            get: fn () => match ($this->status) {
                 'ativo' => 'Ativo',
                 'inativo' => 'Inativo',
                 'cancelado' => 'Cancelado',
@@ -158,7 +168,7 @@ class Evento extends Model
                 'dinheiro' => $this->aceita_dinheiro,
                 'cartao' => $this->aceita_cartao,
                 'pix' => $this->aceita_pix,
-                'gratuito' => $this->aceita_gratuito
+                'gratuito' => $this->aceita_gratuito,
             ])->filter()->keys()->toArray()
         );
     }
@@ -170,20 +180,20 @@ class Evento extends Model
                 'dinheiro' => $this->aceita_dinheiro ? 'Dinheiro' : null,
                 'cartao' => $this->aceita_cartao ? 'Cartão' : null,
                 'pix' => $this->aceita_pix ? 'PIX' : null,
-                'gratuito' => $this->aceita_gratuito ? 'Gratuito' : null
+                'gratuito' => $this->aceita_gratuito ? 'Gratuito' : null,
             ])->filter()->values()->implode(', ')
         );
     }
 
     public function deveSerDesativado(): bool
     {
-        return $this->ativo && 
-               $this->data_fim && 
+        return $this->ativo &&
+               $this->data_fim &&
                $this->data_fim->isPast();
     }
 
     public function gerarHash(): string
     {
-        return strtoupper(substr(md5($this->titulo . time() . rand()), 0, 10));
+        return strtoupper(substr(md5($this->titulo.time().rand()), 0, 10));
     }
 }

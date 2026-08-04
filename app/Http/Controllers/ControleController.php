@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Entrada;
 use App\Models\Evento;
 use App\Services\MercadoPagoService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class ControleController extends Controller
 {
@@ -20,25 +20,25 @@ class ControleController extends Controller
     {
         // Get all active events for the dropdown
         $eventos = Evento::where('status', 'ativo')->orderBy('created_at', 'desc')->get();
-        
+
         // If no events exist, show empty state with proper variables
         if ($eventos->isEmpty()) {
             return view('admin.controle', [
                 'eventos' => $eventos,
-                'selectedEvento' => null
+                'selectedEvento' => null,
             ]);
         }
-        
+
         // Redirect to first available event, but fallback if redirect fails
         $firstEvento = $eventos->first();
-        
+
         try {
             return redirect()->route('admin.controle.evento', ['evento' => $firstEvento->id]);
         } catch (\Exception $e) {
             // Fallback: show view with first event selected
             return view('admin.controle', [
                 'eventos' => $eventos,
-                'selectedEvento' => $firstEvento
+                'selectedEvento' => $firstEvento,
             ]);
         }
     }
@@ -53,7 +53,7 @@ class ControleController extends Controller
 
         // Get all active events for the dropdown
         $eventos = Evento::where('status', 'ativo')->orderBy('created_at', 'desc')->get();
-        
+
         // Load entradas for the selected event
         $query = Entrada::with(['vinculado', 'vinculado.responsavel', 'pacote'])
             ->where('evento_id', $evento->id)
@@ -62,14 +62,14 @@ class ControleController extends Controller
         // Apply search filter
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->whereHas('vinculado', function($vinculadoQuery) use ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('vinculado', function ($vinculadoQuery) use ($search) {
                     $vinculadoQuery->where('nome', 'like', "%{$search}%");
                 })
-                ->orWhereHas('vinculado.responsavel', function($responsavelQuery) use ($search) {
-                    $responsavelQuery->where('nome', 'like', "%{$search}%")
-                        ->orWhere('cpf', 'like', "%{$search}%");
-                });
+                    ->orWhereHas('vinculado.responsavel', function ($responsavelQuery) use ($search) {
+                        $responsavelQuery->where('nome', 'like', "%{$search}%")
+                            ->orWhere('cpf', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -96,12 +96,12 @@ class ControleController extends Controller
             $now = Carbon::now();
             $minutosPassados = $entrada->datahora_entrada->diffInMinutes($now);
             $limiteTempo = $entrada->pacote_duracao + ($entrada->pacote_tolerancia ?? 0);
-            
+
             $entrada->tempo_permanencia_atual = $minutosPassados;
             $entrada->tempo_excedido = max(0, $minutosPassados - $limiteTempo);
             $entrada->status_real = $entrada->tempo_excedido > 0 ? 'vencido' : 'ativo';
             $entrada->tempo_formatado = $this->formatarTempo($minutosPassados);
-            
+
             return $entrada;
         });
 
@@ -111,32 +111,32 @@ class ControleController extends Controller
             'entradas_hoje' => Entrada::where('evento_id', $evento->id)->whereDate('datahora_entrada', today())->count(),
             'tempo_medio' => $this->calcularTempoMedio($evento),
             'capacidade_total' => $evento->capacidade,
-            'percentual_ocupacao' => $evento->capacidade > 0 ? 
-                (Entrada::where('evento_id', $evento->id)->where('status', 'ativo')->count() / $evento->capacidade) * 100 : 0
+            'percentual_ocupacao' => $evento->capacidade > 0 ?
+                (Entrada::where('evento_id', $evento->id)->where('status', 'ativo')->count() / $evento->capacidade) * 100 : 0,
         ];
         $stats['capacidade_disponivel'] = max(0, $stats['capacidade_total'] - $stats['pessoas_ativas']);
         $stats['percentual_ocupacao'] = round($stats['percentual_ocupacao'], 1);
-        
+
         return view('admin.controle', [
             'eventos' => $eventos,
             'selectedEvento' => $evento,
             'entradas' => $entradas,
-            'stats' => $stats
+            'stats' => $stats,
         ]);
     }
 
     public function data(Request $request)
     {
         $eventoId = $request->evento_id;
-        
+
         // Validate event ID is provided
-        if (!$eventoId) {
+        if (! $eventoId) {
             return response()->json(['error' => 'Event ID required'], 400);
         }
 
         // Validate event exists and is active
         $evento = Evento::find($eventoId);
-        if (!$evento) {
+        if (! $evento) {
             return response()->json(['error' => 'Event not found'], 404);
         }
 
@@ -151,14 +151,14 @@ class ControleController extends Controller
         // Apply search filter
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->whereHas('vinculado', function($vinculadoQuery) use ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('vinculado', function ($vinculadoQuery) use ($search) {
                     $vinculadoQuery->where('nome', 'like', "%{$search}%");
                 })
-                ->orWhereHas('vinculado.responsavel', function($responsavelQuery) use ($search) {
-                    $responsavelQuery->where('nome', 'like', "%{$search}%")
-                        ->orWhere('cpf', 'like', "%{$search}%");
-                });
+                    ->orWhereHas('vinculado.responsavel', function ($responsavelQuery) use ($search) {
+                        $responsavelQuery->where('nome', 'like', "%{$search}%")
+                            ->orWhere('cpf', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -185,12 +185,12 @@ class ControleController extends Controller
             $now = Carbon::now();
             $minutosPassados = $entrada->datahora_entrada->diffInMinutes($now);
             $limiteTempo = $entrada->pacote_duracao + ($entrada->pacote_tolerancia ?? 0);
-            
+
             $entrada->tempo_permanencia_atual = $minutosPassados;
             $entrada->tempo_excedido = max(0, $minutosPassados - $limiteTempo);
             $entrada->status_real = $entrada->tempo_excedido > 0 ? 'vencido' : 'ativo';
             $entrada->tempo_formatado = $this->formatarTempo($minutosPassados);
-            
+
             return $entrada;
         });
 
@@ -203,7 +203,7 @@ class ControleController extends Controller
                 'total' => $entradas->total(),
                 'from' => $entradas->firstItem(),
                 'to' => $entradas->lastItem(),
-            ]
+            ],
         ]);
     }
 
@@ -213,25 +213,25 @@ class ControleController extends Controller
         if ($evento->status !== 'ativo') {
             return response()->json(['error' => 'Evento não está ativo'], 422);
         }
-        
+
         // Pessoas ativas no evento
         $pessoasAtivas = Entrada::where('evento_id', $evento->id)
             ->where('status', 'ativo')
             ->count();
-        
+
         // Entradas hoje no evento
         $entradasHoje = Entrada::where('evento_id', $evento->id)
             ->whereDate('datahora_entrada', today())
             ->count();
-        
+
         // Tempo médio de permanência (apenas para entradas finalizadas)
         $tempoMedio = Entrada::where('evento_id', $evento->id)
             ->where('status', 'finalizado')
             ->where('tempo_permanencia', '>', 0)
             ->avg('tempo_permanencia');
-        
+
         $tempoMedioFormatado = $tempoMedio ? $this->formatarTempo($tempoMedio) : '0h 0m';
-        
+
         // Capacidade do evento
         $capacidadeTotal = $evento->capacidade;
         $capacidadeDisponivel = max(0, $capacidadeTotal - $pessoasAtivas);
@@ -249,47 +249,48 @@ class ControleController extends Controller
                 'titulo' => $evento->titulo,
                 'data_inicio' => $evento->data_inicio?->format('d/m/Y H:i'),
                 'data_fim' => $evento->data_fim?->format('d/m/Y H:i'),
-            ]
+            ],
         ]);
     }
 
     public function registrarSaida(Request $request, Entrada $entrada)
     {
-        // Validate entrada belongs to an active event
+        // Validate event is active
         if ($entrada->evento->status !== 'ativo') {
-            return response()->json(['error' => 'O evento desta entrada não está mais ativo'], 422);
-        }
-
-        if ($entrada->status !== 'ativo') {
-            return response()->json(['error' => 'Esta entrada não está ativa'], 422);
-        }
-
-        $now = Carbon::now();
-        $tempoPermancencia = $entrada->datahora_entrada->diffInMinutes($now);
-        
-        // Check if time exceeded and payment required
-        $limiteTempo = $entrada->pacote_duracao + ($entrada->pacote_tolerancia ?? 0);
-        $tempoExcedido = max(0, $tempoPermancencia - $limiteTempo);
-        
-        if ($tempoExcedido > 0 && !$entrada->pgto_extra) {
             return response()->json([
-                'error' => 'Pagamento adicional obrigatório. Tempo excedido: ' . $this->formatarTempo($tempoExcedido) . '. Processe o pagamento antes de registrar a saída.'
+                'error' => 'O evento desta entrada não está mais ativo',
             ], 422);
         }
-        
-        $entrada->update([
-            'status' => 'finalizado',
-            'datahora_saida' => $now,
-            'tempo_permanencia' => $tempoPermancencia,
-        ]);
 
+        // Use enhanced model method
+        $resultado = $entrada->registrarSaida();
+
+        if (! $resultado['success']) {
+            $statusCode = 422;
+            $message = $resultado['message'];
+
+            // Provide detailed error for payment required
+            if ($resultado['code'] === 'PAYMENT_REQUIRED') {
+                $data = $resultado['data'];
+                $message .= sprintf(
+                    '. Tempo excedido: %s. Valor adicional: R$ %s. Processe o pagamento antes de registrar a saída.',
+                    $this->formatarTempo($data['tempo_excedido']),
+                    number_format($data['valor_adicional'], 2, ',', '.')
+                );
+            }
+
+            return response()->json(['error' => $message], $statusCode);
+        }
+
+        // Success - load relationships for response
         return response()->json([
             'success' => 'Saída registrada com sucesso!',
-            'entrada' => $entrada->load(['vinculado', 'vinculado.responsavel'])
+            'entrada' => $entrada->load(['vinculado', 'vinculado.responsavel']),
+            'tempo_permanencia' => $resultado['data']['tempo_permanencia'],
         ]);
     }
 
-    public function cobrarAdicional(Request $request, Entrada $entrada, MercadoPagoService $mercadoPago = null)
+    public function cobrarAdicional(Request $request, Entrada $entrada, ?MercadoPagoService $mercadoPago = null)
     {
         // Validate entrada belongs to an active event
         if ($entrada->evento->status !== 'ativo') {
@@ -300,21 +301,22 @@ class ControleController extends Controller
             'tempo_adicional' => 'required|integer|min:1',
             'valor_adicional' => 'required|numeric|min:0.01',
             'forma_pagamento' => 'required|in:dinheiro,cartao_debito,cartao_credito,pix',
-            'observacoes' => 'nullable|string|max:500'
+            'observacoes' => 'nullable|string|max:500',
         ]);
 
         DB::beginTransaction();
-        
+
         try {
             $paymentData = null;
             $isDigitalPayment = in_array($request->forma_pagamento, ['pix', 'cartao_debito', 'cartao_credito']);
-            
+
             // Process digital payments
             if ($isDigitalPayment && $mercadoPago) {
                 $paymentData = $this->processDigitalPayment($request, $entrada, $mercadoPago);
-                
-                if (!$paymentData['success']) {
+
+                if (! $paymentData['success']) {
                     DB::rollback();
+
                     return response()->json(['error' => $paymentData['error']], 422);
                 }
             }
@@ -325,10 +327,10 @@ class ControleController extends Controller
                 'pgto_extra_valor' => $request->valor_adicional,
                 'tempo_excedido' => $request->tempo_adicional,
                 'forma_pagamento_extra' => $request->forma_pagamento,
-                'observacoes_pagamento' => ($entrada->observacoes_pagamento ?? '') . 
-                    "\nCobrança adicional: R$ {$request->valor_adicional} por {$request->tempo_adicional} min extras. " . 
-                    "Forma: " . ucfirst($request->forma_pagamento) . ". " .
-                    ($request->observacoes ?? '')
+                'observacoes_pagamento' => ($entrada->observacoes_pagamento ?? '').
+                    "\nCobrança adicional: R$ {$request->valor_adicional} por {$request->tempo_adicional} min extras. ".
+                    'Forma: '.ucfirst($request->forma_pagamento).'. '.
+                    ($request->observacoes ?? ''),
             ];
 
             // Add payment gateway data if digital payment
@@ -339,12 +341,25 @@ class ControleController extends Controller
 
             $entrada->update($updateData);
 
+            // Create cash movement for overage payment
+            \App\Models\CaixaMovimento::create([
+                'evento_id' => $entrada->evento_id,
+                'user_id' => auth()->id(),
+                'data_caixa' => now()->toDateString(),
+                'tipo_item' => 'entrada',
+                'descricao' => "Pagamento Adicional - Entrada #{$entrada->id} - ".
+                    "Tempo excedido: {$request->tempo_adicional} min - ".
+                    ucfirst($request->forma_pagamento),
+                'valor' => $request->valor_adicional,
+                'ativo' => true,
+            ]);
+
             DB::commit();
 
             $response = [
                 'success' => 'Cobrança adicional processada com sucesso!',
                 'entrada' => $entrada->load(['vinculado', 'vinculado.responsavel']),
-                'payment_method' => $request->forma_pagamento
+                'payment_method' => $request->forma_pagamento,
             ];
 
             // Add PIX QR code if available
@@ -356,10 +371,11 @@ class ControleController extends Controller
             }
 
             return response()->json($response);
-            
+
         } catch (\Exception $e) {
             DB::rollback();
-            return response()->json(['error' => 'Erro ao processar cobrança adicional: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'Erro ao processar cobrança adicional: '.$e->getMessage()], 500);
         }
     }
 
@@ -368,10 +384,10 @@ class ControleController extends Controller
         $paymentData = [
             'amount' => $request->valor_adicional,
             'description' => "Cobrança adicional - {$request->tempo_adicional} min - {$entrada->evento->titulo}",
-            'external_reference' => "entrada_{$entrada->id}_adicional_" . time(),
+            'external_reference' => "entrada_{$entrada->id}_adicional_".time(),
             'payer_name' => $entrada->vinculado->responsavel->nome ?? 'Cliente',
             'payer_email' => $entrada->vinculado->responsavel->email ?? 'cliente@bilhetagem.com',
-            'payer_document' => preg_replace('/\D/', '', $entrada->vinculado->responsavel->cpf ?? '11144477735')
+            'payer_document' => preg_replace('/\D/', '', $entrada->vinculado->responsavel->cpf ?? '11144477735'),
         ];
 
         if ($request->forma_pagamento === 'pix') {
@@ -381,8 +397,8 @@ class ControleController extends Controller
             // For now, return success for cash-equivalent processing
             return [
                 'success' => true,
-                'payment_id' => 'card_' . time(),
-                'status' => 'pending'
+                'payment_id' => 'card_'.time(),
+                'status' => 'pending',
             ];
         }
     }
@@ -399,14 +415,14 @@ class ControleController extends Controller
             'vinculado',
             'vinculado.responsavel',
             'pacote',
-            'prevenda'
+            'prevenda',
         ]);
 
         $now = Carbon::now();
-        $tempoAtual = $entrada->status === 'ativo' ? 
-            $entrada->datahora_entrada->diffInMinutes($now) : 
+        $tempoAtual = $entrada->status === 'ativo' ?
+            $entrada->datahora_entrada->diffInMinutes($now) :
             $entrada->tempo_permanencia;
-        
+
         $limiteTempo = $entrada->pacote_duracao + ($entrada->pacote_tolerancia ?? 0);
         $tempoExcedido = max(0, $tempoAtual - $limiteTempo);
 
@@ -416,8 +432,8 @@ class ControleController extends Controller
             'tempo_limite' => $this->formatarTempo($limiteTempo),
             'tempo_excedido' => $tempoExcedido > 0 ? $this->formatarTempo($tempoExcedido) : null,
             'tempo_excedido_minutos' => $tempoExcedido, // Raw minutes for forms
-            'valor_adicional_sugerido' => $tempoExcedido > 0 ? 
-                $tempoExcedido * ($entrada->pacote_valor_adicional ?? 0.50) : 0
+            'valor_adicional_sugerido' => $tempoExcedido > 0 ?
+                $tempoExcedido * ($entrada->pacote_valor_adicional ?? 0.50) : 0,
         ]);
     }
 
@@ -425,11 +441,11 @@ class ControleController extends Controller
     {
         $horas = intdiv($minutos, 60);
         $mins = $minutos % 60;
-        
+
         if ($horas > 0) {
             return "{$horas}h {$mins}m";
         }
-        
+
         return "{$mins}m";
     }
 
@@ -439,7 +455,7 @@ class ControleController extends Controller
             ->where('status', 'finalizado')
             ->where('tempo_permanencia', '>', 0)
             ->avg('tempo_permanencia');
-        
+
         return $tempoMedio ? $this->formatarTempo($tempoMedio) : '0h 0m';
     }
 }

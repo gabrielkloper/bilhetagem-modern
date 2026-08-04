@@ -2,32 +2,37 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Prevenda extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'codigo',
-        'evento_id',
         'responsavel_id',
-        'valor',
-        'quantidade',
+        'evento_id',
+        'data_acesso',
         'status',
-        'data_venda',
-        'data_utilizacao',
-        'observacoes',
-        'user_id'
+        'datahora_solicita',
+        'datahora_efetiva',
+        'datahora_efetiva_saida',
+        'tipo_pagamento',
+        'valor_pagamento',
+        'datahora_pagamento',
+        'datahora_reserva',
+        'origem',
     ];
 
     protected $casts = [
-        'data_venda' => 'datetime',
-        'data_utilizacao' => 'datetime', 
-        'valor' => 'decimal:2',
-        'quantidade' => 'integer'
+        'data_acesso' => 'date',
+        'datahora_solicita' => 'datetime',
+        'datahora_efetiva' => 'datetime',
+        'datahora_efetiva_saida' => 'datetime',
+        'datahora_pagamento' => 'datetime',
+        'datahora_reserva' => 'datetime',
+        'valor_pagamento' => 'decimal:2',
     ];
 
     // Relacionamentos
@@ -39,11 +44,6 @@ class Prevenda extends Model
     public function responsavel()
     {
         return $this->belongsTo(Responsavel::class);
-    }
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function entradas()
@@ -71,11 +71,13 @@ class Prevenda extends Model
     protected function statusLabel(): Attribute
     {
         return Attribute::make(
-            get: fn () => match($this->status) {
+            get: fn () => match ($this->status) {
                 'pendente' => 'Pendente',
-                'utilizada' => 'Utilizada',
-                'cancelada' => 'Cancelada',
-                'expirada' => 'Expirada',
+                'confirmado' => 'Confirmado',
+                'cancelado' => 'Cancelado',
+                'utilizado' => 'Utilizado',
+                'expirado' => 'Expirado',
+                'finalizado' => 'Finalizado',
                 default => ucfirst($this->status)
             }
         );
@@ -84,7 +86,7 @@ class Prevenda extends Model
     protected function valorFormatado(): Attribute
     {
         return Attribute::make(
-            get: fn () => 'R$ ' . number_format($this->valor, 2, ',', '.')
+            get: fn () => 'R$ '.number_format($this->valor_pagamento, 2, ',', '.')
         );
     }
 
@@ -96,24 +98,24 @@ class Prevenda extends Model
 
     public function marcarComoUtilizada(): bool
     {
-        if (!$this->podeSerUtilizada()) {
+        if (! $this->podeSerUtilizada()) {
             return false;
         }
 
         return $this->update([
-            'status' => 'utilizada',
-            'data_utilizacao' => now()
+            'status' => 'utilizado',
+            'datahora_efetiva_saida' => now(),
         ]);
     }
 
     public function cancelar(): bool
     {
-        if ($this->status === 'utilizada') {
+        if ($this->status === 'utilizado') {
             return false;
         }
 
         return $this->update([
-            'status' => 'cancelada'
+            'status' => 'cancelado',
         ]);
     }
 }

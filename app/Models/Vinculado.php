@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 
 class Vinculado extends Model
 {
@@ -17,7 +17,7 @@ class Vinculado extends Model
         'vinculo_id',
         'nome',
         'nascimento',
-        'lembrar'
+        'lembrar',
     ];
 
     protected $casts = [
@@ -50,5 +50,40 @@ class Vinculado extends Model
     public function getTipoDescricaoAttribute()
     {
         return $this->vinculo ? $this->vinculo->descricao : 'Não definido';
+    }
+
+    // Métodos Auxiliares de Validação de Inscrição
+    /**
+     * Verifica se o responsável deste vinculado está inscrito e ativo em um evento
+     */
+    public function responsavelInscritoNoEvento(int $eventoId): bool
+    {
+        return $this->responsavel
+            ->inscricoes()
+            ->where('evento_id', $eventoId)
+            ->where('ativo', true)
+            ->exists();
+    }
+
+    /**
+     * Obter inscrição do responsável em um evento
+     */
+    public function inscricaoDoResponsavelNoEvento(int $eventoId): ?Inscricao
+    {
+        return $this->responsavel
+            ->inscricoes()
+            ->where('evento_id', $eventoId)
+            ->first();
+    }
+
+    // Scopes
+    /**
+     * Scope para filtrar vinculados cujos responsáveis estão inscritos em um evento
+     */
+    public function scopeComResponsavelInscritoNoEvento($query, int $eventoId)
+    {
+        return $query->whereHas('responsavel.inscricoes', function ($q) use ($eventoId) {
+            $q->where('evento_id', $eventoId)->where('ativo', true);
+        });
     }
 }

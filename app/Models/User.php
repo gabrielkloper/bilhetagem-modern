@@ -3,16 +3,16 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -25,7 +25,7 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
-        'evento_id'
+        'evento_id',
     ];
 
     /**
@@ -49,7 +49,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => 'string',
-            'status' => 'string'
+            'status' => 'string',
         ];
     }
 
@@ -67,6 +67,16 @@ class User extends Authenticatable
     public function caixaMovimentos()
     {
         return $this->hasMany(CaixaMovimento::class);
+    }
+
+    public function caixaAberturas()
+    {
+        return $this->hasMany(CaixaAbertura::class);
+    }
+
+    public function caixaFechamentos()
+    {
+        return $this->hasMany(CaixaAbertura::class, 'user_fechamento_id');
     }
 
     // Scopes
@@ -110,7 +120,7 @@ class User extends Authenticatable
     protected function roleLabel(): Attribute
     {
         return Attribute::make(
-            get: fn () => match($this->role) {
+            get: fn () => match ($this->role) {
                 'admin' => 'Administrador',
                 'operador' => 'Operador',
                 'caixa' => 'Caixa',
@@ -123,7 +133,7 @@ class User extends Authenticatable
     protected function statusLabel(): Attribute
     {
         return Attribute::make(
-            get: fn () => match($this->status) {
+            get: fn () => match ($this->status) {
                 'ativo' => 'Ativo',
                 'inativo' => 'Inativo',
                 'suspenso' => 'Suspenso',

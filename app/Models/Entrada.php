@@ -2,10 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\Attribute;
-use Carbon\Carbon;
 
 class Entrada extends Model
 {
@@ -16,7 +15,6 @@ class Entrada extends Model
         'vinculado_id',
         'pacote_id',
         'prevenda_id',
-        'perfil_acesso_id',
         'perfil_acesso',
         'status',
         'datahora_entrada',
@@ -43,12 +41,12 @@ class Entrada extends Model
         'pagamento_confirmado',
         'forma_pagamento_extra',
         'payment_id',
-        'payment_status'
+        'payment_status',
     ];
 
     protected $casts = [
         'datahora_entrada' => 'datetime',
-        'datahora_saida' => 'datetime', 
+        'datahora_saida' => 'datetime',
         'datahora_autorizacao' => 'datetime',
         'pacote_valor' => 'decimal:2',
         'pgto_extra_valor' => 'decimal:2',
@@ -64,7 +62,7 @@ class Entrada extends Model
         'pacote_duracao' => 'integer',
         'pacote_qtde_compra' => 'integer',
         'pacote_minutos_compra' => 'integer',
-        'pacote_tolerancia' => 'integer'
+        'pacote_tolerancia' => 'integer',
     ];
 
     // Relacionamentos
@@ -76,11 +74,6 @@ class Entrada extends Model
     public function vinculado()
     {
         return $this->belongsTo(Vinculado::class);
-    }
-
-    public function perfilAcesso()
-    {
-        return $this->belongsTo(PerfilAcesso::class, 'perfil_acesso_id');
     }
 
     public function responsavel()
@@ -133,7 +126,7 @@ class Entrada extends Model
     protected function statusLabel(): Attribute
     {
         return Attribute::make(
-            get: fn () => match($this->status) {
+            get: fn () => match ($this->status) {
                 'ativo' => 'Presente',
                 'finalizado' => 'Finalizado',
                 'cancelado' => 'Cancelado',
@@ -146,7 +139,7 @@ class Entrada extends Model
     protected function tipoEntradaLabel(): Attribute
     {
         return Attribute::make(
-            get: fn () => match($this->tipo_entrada) {
+            get: fn () => match ($this->tipo_entrada) {
                 'individual' => 'Individual',
                 'pacote' => 'Pacote',
                 'prevenda' => 'Pré-venda',
@@ -159,7 +152,7 @@ class Entrada extends Model
     protected function formaPagamentoLabel(): Attribute
     {
         return Attribute::make(
-            get: fn () => match($this->forma_pagamento) {
+            get: fn () => match ($this->forma_pagamento) {
                 'dinheiro' => 'Dinheiro',
                 'cartao' => 'Cartão',
                 'pix' => 'PIX',
@@ -173,7 +166,7 @@ class Entrada extends Model
     protected function valorFormatado(): Attribute
     {
         return Attribute::make(
-            get: fn () => 'R$ ' . number_format($this->valor_pago, 2, ',', '.')
+            get: fn () => 'R$ '.number_format($this->valor_pago, 2, ',', '.')
         );
     }
 
@@ -185,22 +178,24 @@ class Entrada extends Model
                     $minutos = $this->datahora_entrada->diffInMinutes($this->datahora_saida);
                     $horas = intdiv($minutos, 60);
                     $minutosRestantes = $minutos % 60;
+
                     return "{$horas}h {$minutosRestantes}min";
                 }
-                
+
                 if ($this->status === 'ativo') {
                     $minutos = $this->datahora_entrada->diffInMinutes(now());
                     $horas = intdiv($minutos, 60);
                     $minutosRestantes = $minutos % 60;
+
                     return "{$horas}h {$minutosRestantes}min (ativo)";
                 }
-                
+
                 return 'N/A';
             }
         );
     }
 
-    // Métodos auxiliares  
+    // Métodos auxiliares
     public function podeRegistrarSaida(): bool
     {
         return $this->status === 'ativo';
@@ -208,30 +203,73 @@ class Entrada extends Model
 
     public function podeSerEditada(): bool
     {
-        return !in_array($this->status, ['finalizado', 'cancelado']);
+        return ! in_array($this->status, ['finalizado', 'cancelado']);
     }
 
     public function podeSerCancelada(): bool
     {
-        return !in_array($this->status, ['finalizado', 'cancelado']);
+        return ! in_array($this->status, ['finalizado', 'cancelado']);
     }
 
-    public function registrarSaida(): bool
+    public function registrarSaida(): array
     {
-        if (!$this->podeRegistrarSaida()) {
-            return false;
+        if (! $this->podeRegistrarSaida()) {
+            return [
+                'success' => false,
+                'message' => 'Entrada não pode ser finalizada.',
+                'code' => 'NOT_ACTIVE',
+            ];
         }
 
         $agora = now();
         $tempoPermanencia = $this->datahora_entrada->diffInMinutes($agora);
 
+        // Calculate billing using existing Pacote method
+        $valorTotalDevido = $this->pacote->calcularValorTotal($tempoPermanencia);
+        $valorJaPago = $this->valor_pago ?? 0;
+        $valorAdicional = max(0, $valorTotalDevido - $valorJaPago);
+
+        // Determine if overage payment is required
+        $tempoExcedido = 0;
+        $limiteTempo = $this->pacote_duracao + ($this->pacote_tolerancia ?? 0);
+        if ($tempoPermanencia > $limiteTempo) {
+            $tempoExcedido = $tempoPermanencia - $limiteTempo;
+        }
+
+        // Check if overage payment was made
+        if ($valorAdicional > 0 && ! $this->pgto_extra) {
+            return [
+                'success' => false,
+                'message' => 'Pagamento adicional obrigatório',
+                'code' => 'PAYMENT_REQUIRED',
+                'data' => [
+                    'tempo_permanencia' => $tempoPermanencia,
+                    'tempo_excedido' => $tempoExcedido,
+                    'valor_adicional' => $valorAdicional,
+                    'valor_total_devido' => $valorTotalDevido,
+                    'valor_ja_pago' => $valorJaPago,
+                ],
+            ];
+        }
+
+        // Update entrada with exit data
         $this->update([
             'status' => 'finalizado',
             'datahora_saida' => $agora,
             'tempo_permanencia' => $tempoPermanencia,
+            'tempo_excedido' => $tempoExcedido,
         ]);
 
-        return true;
+        return [
+            'success' => true,
+            'message' => 'Saída registrada com sucesso',
+            'data' => [
+                'tempo_permanencia' => $tempoPermanencia,
+                'tempo_excedido' => $tempoExcedido,
+                'valor_adicional' => $valorAdicional,
+                'status' => 'finalizado',
+            ],
+        ];
     }
 
     public function calcularTempoPermanencia(): int
@@ -239,11 +277,11 @@ class Entrada extends Model
         if ($this->datahora_saida && $this->datahora_entrada) {
             return $this->datahora_entrada->diffInMinutes($this->datahora_saida);
         }
-        
+
         if ($this->status === 'ativo') {
             return $this->datahora_entrada->diffInMinutes(now());
         }
-        
+
         return 0;
     }
 }
